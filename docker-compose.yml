@@ -1,5 +1,12 @@
+version: '3.8'
+
 services:
   project-service:
     build: ./project-service
     ports:
       - "8000:8000"
+
+  task-service:
+    build: ./task-service
+    ports:
+      - "8001:8001"
