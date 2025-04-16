@@ -10,3 +10,8 @@ services:
     build: ./task-service
     ports:
       - "8001:8001"
+
+  communication-service:
+    build: ./communication-service
+    ports:
+      - "8002:8002"
