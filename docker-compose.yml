@@ -15,3 +15,13 @@ services:
     build: ./communication-service
     ports:
       - "8002:8002"
+
+  report-service:
+    build: ./report-service
+    ports:
+      - "8003:8003"
+
+  schedule-service:
+    build: ./schedule-service
+    ports:
+      - "8004:8004"
