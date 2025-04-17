@@ -25,3 +25,17 @@ services:
     build: ./schedule-service
     ports:
       - "8004:8004"
+
+  task-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: taskdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - task-db-data:/var/lib/postgresql/data
+
+volumes:
+  task-db-data:
