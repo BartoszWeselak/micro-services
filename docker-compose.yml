@@ -36,6 +36,17 @@ services:
       - "5432:5432"
     volumes:
       - task-db-data:/var/lib/postgresql/data
-
+  project-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: projectdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"  # 5433 zewnętrzny, 5432 wewnątrz kontenera
+    volumes:
+      - project-db-data:/var/lib/postgresql/data
 volumes:
   task-db-data:
+  project-db-data:
+
