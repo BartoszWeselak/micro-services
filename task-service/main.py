@@ -4,6 +4,16 @@ from typing import List
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+import os
+from consul import Consul
+import logging
+import socket
+# === Consul Client Setup ===
+CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")
+SERVICE_NAME = os.getenv("SERVICE_NAME", "task-service")
+SERVICE_PORT = int(os.getenv("SERVICE_PORT", 8001))
+
+consul_client = Consul(host=CONSUL_HOST)
 
 # === DB CONFIG ===
 DATABASE_URL = "postgresql://user:password@task-db:5432/taskdb"
@@ -34,12 +44,35 @@ class Task(BaseModel):
 
 # === FASTAPI SETUP ===
 app = FastAPI()
-
+def get_service_ip():
+    try:
+        return socket.gethostbyname(SERVICE_NAME)
+    except:
+        return "127.0.0.1"
 # Tworzenie tabel przy starcie
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    # Rejestracja w Consul
+    service_ip = get_service_ip()
+    service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
 
+    try:
+        consul_client.agent.service.register(
+            name=SERVICE_NAME,
+            service_id=service_id,
+            address=service_ip,
+            port=SERVICE_PORT,
+            check={
+                "name": "HTTP API Check",
+                "http": f"http://{service_ip}:{SERVICE_PORT}/health",
+                "interval": "10s",
+                "timeout": "5s"
+            }
+        )
+        logging.info(f"Successfully registered with Consul as {SERVICE_NAME}")
+    except Exception as e:
+        logging.error(f"Failed to register with Consul: {str(e)}")
 # Dependency: sesja DB
 def get_db():
     db = SessionLocal()
@@ -81,3 +114,22 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     db.delete(db_task)
     db.commit()
     return {"message": "Task deleted"}
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Wyrejestrowanie z Consul przy zamknięciu
+    service_ip = get_service_ip()
+    service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
+
+    try:
+        consul_client.agent.service.deregister(service_id)
+        logging.info("Successfully unregistered from Consul")
+    except Exception as e:
+        logging.error(f"Failed to unregister from Consul: {str(e)}")
+
+
+# Health check endpoint wymagany przez Consul
+@app.get("/health")
+def health_check():
+    return {"status": "UP"}

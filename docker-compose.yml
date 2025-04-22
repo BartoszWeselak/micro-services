@@ -1,6 +1,13 @@
 version: '3.8'
 
 services:
+  consul-server:
+    image: consul:1.15
+    ports:
+      - "8500:8500"
+    command: "agent -server -ui -node=consul-server -bootstrap-expect=1 -client=0.0.0.0"
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
   project-service:
     build: ./project-service
     ports:
@@ -10,6 +17,13 @@ services:
     build: ./task-service
     ports:
       - "8001:8001"
+    depends_on:
+      - consul-server
+      - task-db
+    environment:
+      - CONSUL_HOST=consul-server
+      - SERVICE_NAME=task-service
+      - SERVICE_PORT=8001
 
   communication-service:
     build: ./communication-service
