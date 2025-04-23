@@ -1,79 +1,80 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+import socket
+import os
+from consul import Consul
+import logging
 
-# === DB CONFIG ===
-DATABASE_URL = "postgresql://user:password@project-db:5432/projectdb"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# === Consul Config ===
+CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")
+SERVICE_NAME = os.getenv("SERVICE_NAME", "project-service")
+SERVICE_PORT = int(os.getenv("SERVICE_PORT", 8002))
 
-# === ORM MODEL ===
-class ProjectORM(Base):
-    __tablename__ = "projects"
+consul_client = Consul(host=CONSUL_HOST)
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    description = Column(String)
+# === FastAPI setup ===
+app = FastAPI()
 
-# === Pydantic model ===
+# === Model danych ===
 class Project(BaseModel):
     id: int
     name: str
     description: str = ""
 
-    class Config:
-        orm_mode = True
+# Prosta baza danych w pamięci
+projects_db = []
 
-# === FASTAPI SETUP ===
-app = FastAPI()
-
-# Tworzenie tabel przy starcie
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
-
-# Dependency: sesja DB
-def get_db():
-    db = SessionLocal()
+# === Consul helper ===
+def get_service_ip():
     try:
-        yield db
-    finally:
-        db.close()
+        return socket.gethostbyname(SERVICE_NAME)
+    except:
+        return "127.0.0.1"
 
-# === ENDPOINTY ===
+# === Rejestracja w Consul ===
+@app.on_event("startup")
+def startup_event():
+    service_ip = get_service_ip()
+    service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
+    try:
+        consul_client.agent.service.register(
+            name=SERVICE_NAME,
+            service_id=service_id,
+            address=service_ip,
+            port=SERVICE_PORT,
+            check={
+                "name": "HTTP API Check",
+                "http": f"http://{service_ip}:{SERVICE_PORT}/health",
+                "interval": "10s",
+                "timeout": "5s"
+            }
+        )
+        logging.info(f"Zarejestrowano {SERVICE_NAME} w Consul")
+    except Exception as e:
+        logging.error(f"Błąd rejestracji w Consul: {str(e)}")
 
+# === Wyrejestrowanie ===
+@app.on_event("shutdown")
+async def shutdown_event():
+    service_ip = get_service_ip()
+    service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
+    try:
+        consul_client.agent.service.deregister(service_id)
+        logging.info(f"Wyrejestrowano {SERVICE_NAME} z Consul")
+    except Exception as e:
+        logging.error(f"Błąd wyrejestrowania z Consul: {str(e)}")
+
+# === Endpointy ===
 @app.get("/projects", response_model=List[Project])
-def get_projects(db: Session = Depends(get_db)):
-    return db.query(ProjectORM).all()
+def list_projects():
+    return projects_db
 
 @app.post("/projects", response_model=Project)
-def create_project(project: Project, db: Session = Depends(get_db)):
-    db_project = ProjectORM(**project.dict())
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+def add_project(project: Project):
+    projects_db.append(project)
+    return project
 
-@app.put("/projects/{project_id}", response_model=Project)
-def update_project(project_id: int, project: Project, db: Session = Depends(get_db)):
-    db_project = db.query(ProjectORM).filter(ProjectORM.id == project_id).first()
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    for key, value in project.dict().items():
-        setattr(db_project, key, value)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
-
-@app.delete("/projects/{project_id}")
-def delete_project(project_id: int, db: Session = Depends(get_db)):
-    db_project = db.query(ProjectORM).filter(ProjectORM.id == project_id).first()
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    db.delete(db_project)
-    db.commit()
-    return {"message": "Project deleted"}
+@app.get("/health")
+def health_check():
+    return {"status": "UP"}
