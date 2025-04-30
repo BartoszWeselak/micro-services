@@ -21,6 +21,8 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+
 # === ORM MODEL ===
 class TaskORM(Base):
     __tablename__ = "tasks"
@@ -44,6 +46,19 @@ class Task(BaseModel):
 
 # === FASTAPI SETUP ===
 app = FastAPI()
+
+def discover_service(service_name: str):
+    try:
+        services = consul_client.agent.services()
+        for service in services.values():
+            if service['Service'] == service_name:
+                address = service['Address']
+                port = service['Port']
+                return f"http://{address}:{port}"
+    except Exception as e:
+        logging.error(f"Service discovery error: {str(e)}")
+    return None
+
 def get_service_ip():
     try:
         return socket.gethostbyname(SERVICE_NAME)
@@ -87,8 +102,25 @@ def get_db():
 def get_tasks(db: Session = Depends(get_db)):
     return db.query(TaskORM).all()
 
+import requests
+
 @app.post("/tasks", response_model=Task)
 def create_task(task: Task, db: Session = Depends(get_db)):
+    project_service_url = discover_service("project-service")
+    if not project_service_url:
+        raise HTTPException(status_code=500, detail="Project service unavailable")
+
+    try:
+        response = requests.get(f"{project_service_url}/projects")
+        if response.status_code == 200:
+            projects = response.json()
+            if not any(p["id"] == task.project_id for p in projects):
+                raise HTTPException(status_code=400, detail="Project does not exist")
+        else:
+            raise HTTPException(status_code=500, detail="Failed to validate project")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     db_task = TaskORM(**task.dict())
     db.add(db_task)
     db.commit()
