@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Task Manager</title>
+    <style>
+        body { font-family: Arial; margin: 2rem; }
+        h1 { color: #333; }
+        .task, .project { margin-bottom: 1rem; padding: 1rem; border: 1px solid #ccc; border-radius: 5px; }
+        form { margin-top: 2rem; }
+        input, select, textarea { display: block; margin-top: 0.5rem; margin-bottom: 1rem; padding: 0.5rem; width: 100%; max-width: 400px; }
+    </style>
+</head>
+<body>
+    <h1>Projects</h1>
+    {% for project in projects %}
+        <div class="project">
+            <strong>{{ project.id }} - {{ project.name }}</strong><br>
+            {{ project.description }}
+        </div>
+    {% endfor %}
+
+    <h1>Tasks</h1>
+    {% for task in tasks %}
+        <div class="task">
+            <strong>{{ task.title }}</strong> [Project ID: {{ task.project_id }}] <br>
+            {{ task.description }}<br>
+            Status: {{ "Done" if task.is_done else "Pending" }}
+        </div>
+    {% endfor %}
+
+    <h2>Add Task</h2>
+    <form method="post" action="/add-task">
+        <label>Title: <input type="text" name="title" required></label>
+        <label>Description: <textarea name="description"></textarea></label>
+        <label>Project:
+            <select name="project_id" required>
+                {% for project in projects %}
+                    <option value="{{ project.id }}">{{ project.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit">Add Task</button>
+    </form>
+</body>
+</html>

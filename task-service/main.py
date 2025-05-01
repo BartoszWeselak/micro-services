@@ -27,7 +27,7 @@ Base = declarative_base()
 class TaskORM(Base):
     __tablename__ = "tasks"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String, nullable=False)
     description = Column(String)
     project_id = Column(Integer)
@@ -35,7 +35,7 @@ class TaskORM(Base):
 
 # === Pydantic model ===
 class Task(BaseModel):
-    id: int
+    id: int | None = None
     title: str
     description: str = ""
     project_id: int
@@ -104,8 +104,11 @@ def get_tasks(db: Session = Depends(get_db)):
 
 import requests
 
+
 @app.post("/tasks", response_model=Task)
 def create_task(task: Task, db: Session = Depends(get_db)):
+    task_data = task.dict(exclude={"id"})
+
     project_service_url = discover_service("project-service")
     if not project_service_url:
         raise HTTPException(status_code=500, detail="Project service unavailable")
@@ -121,12 +124,11 @@ def create_task(task: Task, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    db_task = TaskORM(**task.dict())
+    db_task = TaskORM(**task_data)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task
-
 @app.put("/tasks/{task_id}", response_model=Task)
 def update_task(task_id: int, task: Task, db: Session = Depends(get_db)):
     db_task = db.query(TaskORM).filter(TaskORM.id == task_id).first()
