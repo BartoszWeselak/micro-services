@@ -88,18 +88,6 @@ def get_db():
         db.close()
 
 
-# === Wyrejestrowanie ===
-@app.on_event("shutdown")
-async def shutdown_event():
-    service_ip = get_service_ip()
-    service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
-    try:
-        consul_client.agent.service.deregister(service_id)
-        logging.info(f"Wyrejestrowano {SERVICE_NAME} z Consul")
-    except Exception as e:
-        logging.error(f"Błąd wyrejestrowania z Consul: {str(e)}")
-
-
 # === Endpointy ===
 @app.get("/projects", response_model=List[Project])
 def list_projects(db: Session = Depends(get_db)):
@@ -115,6 +103,43 @@ def add_project(project: Project, db: Session = Depends(get_db)):
     return db_project
 
 
+@app.put("/projects/{project_id}", response_model=Project)
+def update_project(project_id: int, project: Project, db: Session = Depends(get_db)):
+    db_project = db.query(ProjectORM).filter(ProjectORM.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    for key, value in project.dict().items():
+        setattr(db_project, key, value)
+
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    db_project = db.query(ProjectORM).filter(ProjectORM.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    db.delete(db_project)
+    db.commit()
+    return {"message": "Project deleted successfully"}
+
+
 @app.get("/health")
 def health_check():
     return {"status": "UP"}
+
+
+# === Wyrejestrowanie ===
+@app.on_event("shutdown")
+async def shutdown_event():
+    service_ip = get_service_ip()
+    service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
+    try:
+        consul_client.agent.service.deregister(service_id)
+        logging.info(f"Wyrejestrowano {SERVICE_NAME} z Consul")
+    except Exception as e:
+        logging.error(f"Błąd wyrejestrowania z Consul: {str(e)}")

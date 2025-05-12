@@ -138,6 +138,7 @@
             border-radius: var(--border-radius);
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
+            margin-right: 0.5rem;
         }
 
         button:hover {
@@ -150,6 +151,10 @@
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
+        }
+
+        .inline-form {
+            display: inline;
         }
 
         @media (max-width: 768px) {
@@ -168,24 +173,42 @@
         <h1>Projects</h1>
         <div class="grid">
             {% for project in projects %}
-                <div class="project">
-                    <strong>{{ project.id }} - {{ project.name }}</strong><br>
-                    <p>{{ project.description }}</p>
-                </div>
-            {% endfor %}
+<div class="project">
+    <strong>{{ project.id }} - {{ project.name }}</strong><br>
+    <p>{{ project.description }}</p>
+
+    <form method="get" action="/edit-project/{{ project.id }}" class="inline-form">
+        <button type="submit">Edit</button>
+    </form>
+
+    <form method="post" action="/delete-project/{{ project.id }}" class="inline-form"
+          onsubmit="return confirm('Are you sure you want to delete this project?');">
+        <button type="submit">Delete</button>
+    </form>
+</div>
+{% endfor %}
         </div>
 
         <h1>Tasks</h1>
         <div class="grid">
             {% for task in tasks %}
-                <div class="task">
-                    <strong>{{ task.title }}</strong>
-                    <span class="task-status {{ 'status-done' if task.is_done else 'status-pending' }}">
-                        {{ "Done" if task.is_done else "Pending" }}
-                    </span>
-                    <p>{{ task.description }}</p>
-                    <small>Project ID: {{ task.project_id }}</small>
-                </div>
+            <div class="task">
+                <strong>{{ task.title }}</strong>
+                <span class="task-status {{ 'status-done' if task.is_done else 'status-pending' }}">
+                    {{ "Done" if task.is_done else "Pending" }}
+                </span>
+                <p>{{ task.description }}</p>
+                <small>Project ID: {{ task.project_id }}</small><br>
+
+                <form method="get" action="/edit-task/{{ task.id }}" class="inline-form">
+                    <button type="submit">Edit</button>
+                </form>
+
+                <form method="post" action="/delete-task/{{ task.id }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this task?');">
+                    <button type="submit">Delete</button>
+                </form>
+
+            </div>
             {% endfor %}
         </div>
 
