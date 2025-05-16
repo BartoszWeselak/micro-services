@@ -51,6 +51,21 @@ async def add_task(title: str = Form(...), description: str = Form(""), project_
         print("Error:", e)
     return RedirectResponse("/", status_code=302)
 
+@app.post("/add-project", response_class=RedirectResponse)
+async def add_project(name: str = Form(...), description: str = Form("")):
+    project_data = {
+        "name": name,
+        "description": description,
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{SERVICE_MAP['projects']}/projects", json=project_data)
+            response.raise_for_status()
+    except Exception as e:
+        print("Error:", e)
+    return RedirectResponse("/", status_code=302)
+
+
 
 @app.post("/delete-task/{task_id}", response_class=RedirectResponse)
 async def delete_task(task_id: int):

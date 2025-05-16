@@ -201,6 +201,7 @@
         </div>
 
         <h1>Tasks</h1>
+
         <div class="grid">
             {% for task in tasks %}
             <div class="task">
@@ -275,6 +276,22 @@
 
             <button type="submit">Add Task</button>
         </form>
+        <h2>Add New Project</h2>
+<form method="post" action="/add-project">
+    <label>
+        Name:
+        <input type="text" name="name" required placeholder="Enter project name">
+    </label>
+
+    <label>
+        Description:
+        <textarea name="description" placeholder="Enter project description"></textarea>
+    </label>
+
+    <button type="submit">Add Project</button>
+</form>
+
+
     </div>
 <script>
 function toggleEditForm(id) {
