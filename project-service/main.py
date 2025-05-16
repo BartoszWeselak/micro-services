@@ -110,7 +110,8 @@ def update_project(project_id: int, project: Project, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Project not found")
 
     for key, value in project.dict().items():
-        setattr(db_project, key, value)
+        if key != "id":
+            setattr(db_project, key, value)
 
     db.commit()
     db.refresh(db_project)

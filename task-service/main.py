@@ -135,7 +135,9 @@ def update_task(task_id: int, task: Task, db: Session = Depends(get_db)):
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
     for key, value in task.dict().items():
-        setattr(db_task, key, value)
+        if key != "id":
+            setattr(db_task, key, value)
+
     db.commit()
     db.refresh(db_task)
     return db_task
