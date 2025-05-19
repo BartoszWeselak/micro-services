@@ -11,13 +11,18 @@
     api-gateway:
       build: ./api-gateway
       ports:
-        - "8000:8000"
+          - "8000:8000"
       depends_on:
-        - task-service
-        - project-service
-        - communication-service
-        - report-service
-        - schedule-service
+          - task-service
+          - project-service
+          - communication-service
+          - report-service
+          - schedule-service
+          - consul-server
+      environment:
+          - CONSUL_HOST=consul-server
+          - SERVICE_NAME=api-gateway
+          - SERVICE_PORT=8000
 
     project-service:
       build: ./project-service

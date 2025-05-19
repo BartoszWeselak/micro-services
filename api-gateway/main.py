@@ -1,29 +1,42 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Form
 import httpx
 import os
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from fastapi import Form
+from consul import Consul
+import logging
 
 app = FastAPI()
 
-SERVICE_MAP = {
-    "tasks": "http://task-service:8001",
-    "projects": "http://project-service:8002",
-    "communication": "http://communication-service:8005",
-    "report": "http://report-service:8003",
-    "schedule": "http://schedule-service:8004",
-}
+CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")  # lub "localhost", zależnie od środowiska
+consul_client = Consul(host=CONSUL_HOST)
+
 templates = Jinja2Templates(directory="templates")
-# app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Dynamiczne odkrywanie adresu usługi z Consul
+def discover_service(service_name: str) -> str | None:
+    try:
+        services = consul_client.agent.services()
+        for service in services.values():
+            if service["Service"] == service_name:
+                address = service["Address"]
+                port = service["Port"]
+                return f"http://{address}:{port}"
+    except Exception as e:
+        logging.error(f"Error discovering service '{service_name}': {e}")
+    return None
 
 @app.get("/", response_class=HTMLResponse)
 async def homepage(request: Request):
     try:
         async with httpx.AsyncClient() as client:
-            task_response = await client.get(f"{SERVICE_MAP['tasks']}/tasks")
-            project_response = await client.get(f"{SERVICE_MAP['projects']}/projects")
+            task_url = discover_service("task-service")
+            project_url = discover_service("project-service")
+            if not task_url or not project_url:
+                raise Exception("One or more services unavailable")
+
+            task_response = await client.get(f"{task_url}/tasks")
+            project_response = await client.get(f"{project_url}/projects")
             tasks = task_response.json()
             projects = project_response.json()
     except Exception as e:
@@ -44,9 +57,12 @@ async def add_task(title: str = Form(...), description: str = Form(""), project_
         "is_done": False
     }
     try:
+        task_url = discover_service("task-service")
+        if not task_url:
+            raise Exception("Task service unavailable")
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{SERVICE_MAP['tasks']}/tasks", json=task_data)
-            response.raise_for_status()
+            await client.post(f"{task_url}/tasks", json=task_data)
     except Exception as e:
         print("Error:", e)
     return RedirectResponse("/", status_code=302)
@@ -58,21 +74,25 @@ async def add_project(name: str = Form(...), description: str = Form("")):
         "description": description,
     }
     try:
+        project_url = discover_service("project-service")
+        if not project_url:
+            raise Exception("Project service unavailable")
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{SERVICE_MAP['projects']}/projects", json=project_data)
-            response.raise_for_status()
+            await client.post(f"{project_url}/projects", json=project_data)
     except Exception as e:
         print("Error:", e)
     return RedirectResponse("/", status_code=302)
 
-
-
 @app.post("/delete-task/{task_id}", response_class=RedirectResponse)
 async def delete_task(task_id: int):
     try:
+        task_url = discover_service("task-service")
+        if not task_url:
+            raise Exception("Task service unavailable")
+
         async with httpx.AsyncClient() as client:
-            response = await client.delete(f"{SERVICE_MAP['tasks']}/tasks/{task_id}")
-            response.raise_for_status()
+            await client.delete(f"{task_url}/tasks/{task_id}")
     except Exception as e:
         print("Delete task error:", e)
     return RedirectResponse("/", status_code=302)
@@ -80,19 +100,28 @@ async def delete_task(task_id: int):
 @app.post("/delete-project/{project_id}", response_class=RedirectResponse)
 async def delete_project(project_id: int):
     try:
+        project_url = discover_service("project-service")
+        if not project_url:
+            raise Exception("Project service unavailable")
+
         async with httpx.AsyncClient() as client:
-            response = await client.delete(f"{SERVICE_MAP['projects']}/projects/{project_id}")
-            response.raise_for_status()
+            await client.delete(f"{project_url}/projects/{project_id}")
     except Exception as e:
         print(f"Delete project error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     return RedirectResponse("/", status_code=302)
+
 @app.get("/edit-task/{task_id}", response_class=HTMLResponse)
 async def edit_task_form(request: Request, task_id: int):
     try:
+        task_url = discover_service("task-service")
+        project_url = discover_service("project-service")
+        if not task_url or not project_url:
+            raise Exception("Required services unavailable")
+
         async with httpx.AsyncClient() as client:
-            task_res = await client.get(f"{SERVICE_MAP['tasks']}/tasks/{task_id}")
-            projects_res = await client.get(f"{SERVICE_MAP['projects']}/projects")
+            task_res = await client.get(f"{task_url}/tasks/{task_id}")
+            projects_res = await client.get(f"{project_url}/projects")
             task = task_res.json()
             projects = projects_res.json()
     except Exception as e:
@@ -109,18 +138,25 @@ async def edit_task(task_id: int, title: str = Form(...), description: str = For
         "is_done": is_done
     }
     try:
+        task_url = discover_service("task-service")
+        if not task_url:
+            raise Exception("Task service unavailable")
+
         async with httpx.AsyncClient() as client:
-            await client.put(f"{SERVICE_MAP['tasks']}/tasks/{task_id}", json=task_data)
+            await client.put(f"{task_url}/tasks/{task_id}", json=task_data)
     except Exception as e:
         print("Edit task error:", e)
     return RedirectResponse("/", status_code=302)
 
-
 @app.get("/edit-project/{project_id}", response_class=HTMLResponse)
 async def edit_project_form(request: Request, project_id: int):
     try:
+        project_url = discover_service("project-service")
+        if not project_url:
+            raise Exception("Project service unavailable")
+
         async with httpx.AsyncClient() as client:
-            res = await client.get(f"{SERVICE_MAP['projects']}/projects/{project_id}")
+            res = await client.get(f"{project_url}/projects/{project_id}")
             project = res.json()
     except Exception as e:
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
@@ -134,17 +170,31 @@ async def edit_project(project_id: int, name: str = Form(...), description: str 
         "description": description
     }
     try:
+        project_url = discover_service("project-service")
+        if not project_url:
+            raise Exception("Project service unavailable")
+
         async with httpx.AsyncClient() as client:
-            await client.put(f"{SERVICE_MAP['projects']}/projects/{project_id}", json=project_data)
+            await client.put(f"{project_url}/projects/{project_id}", json=project_data)
     except Exception as e:
         print("Edit project error:", e)
     return RedirectResponse("/", status_code=302)
+
 @app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def gateway(service: str, path: str, request: Request):
-    if service not in SERVICE_MAP:
+    service_lookup = {
+        "tasks": "task-service",
+        "projects": "project-service"
+    }
+
+    if service not in service_lookup:
         raise HTTPException(status_code=404, detail="Service not found")
 
-    url = f"{SERVICE_MAP[service]}/{path}"
+    service_url = discover_service(service_lookup[service])
+    if not service_url:
+        raise HTTPException(status_code=503, detail="Service unavailable")
+
+    url = f"{service_url}/{path}"
     method = request.method
     headers = dict(request.headers)
     body = await request.body()
