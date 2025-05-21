@@ -1,13 +1,15 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import os
 from consul import Consul
 import logging
 import socket
+import requests
+
 
 # === Consul Config ===
 CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")
@@ -45,7 +47,17 @@ class Project(BaseModel):
 # === FastAPI setup ===
 app = FastAPI()
 
-
+def discover_service(service_name: str):
+    try:
+        services = consul_client.agent.services()
+        for service in services.values():
+            if service["Service"] == service_name:
+                address = service["Address"]
+                port = service["Port"]
+                return f"http://{address}:{port}"
+    except Exception as e:
+        logging.error(f"Service discovery error: {str(e)}")
+    return None
 def get_service_ip():
     try:
         return socket.gethostbyname(SERVICE_NAME)
@@ -128,6 +140,30 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Project deleted successfully"}
 
+@app.delete("/projects/{project_id}/with-tasks")
+def delete_project_and_tasks(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(ProjectORM).filter(ProjectORM.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # odkrycie task-service
+    task_service_url = discover_service("task-service")
+    if not task_service_url:
+        raise HTTPException(status_code=500, detail="Task service unavailable")
+
+    # DELETE na task-service
+    try:
+        response = requests.delete(f"{task_service_url}/tasks/by-project/{project_id}")
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Failed to delete related tasks")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting tasks: {str(e)}")
+
+    # usunięcie projektu
+    db.delete(project)
+    db.commit()
+
+    return {"message": f"Project {project_id} and its tasks were deleted"}
 
 @app.get("/health")
 def health_check():

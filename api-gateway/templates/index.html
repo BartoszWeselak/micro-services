@@ -155,6 +155,7 @@
 
         .inline-form {
             display: inline;
+            margin-left: 1rem;
         }
 
         @media (max-width: 768px) {
@@ -201,8 +202,12 @@
                     <button type="submit">Save</button>
                 </form>
 
-                <form method="post" action="/delete-project/{{ project.id }}" class="inline-form"
-                    onsubmit="return confirm('Are you sure you want to delete this project?');">
+                <!-- Delete Form with option to remove associated tasks -->
+                <form method="post" action="/delete-project/{{ project.id }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this project?');">
+                    <label style="display: inline-flex; align-items: center;">
+                        <input type="checkbox" name="with_tasks" value="true" style="margin-right: 0.3rem;">
+                        Remove associated tasks
+                    </label>
                     <button type="submit">Delete</button>
                 </form>
             </div>
@@ -269,8 +274,7 @@
                     <button type="submit">Save</button>
                 </form>
 
-                <form method="post" action="/delete-task/{{ task.id }}" class="inline-form"
-                    onsubmit="return confirm('Are you sure you want to delete this task?');">
+                <form method="post" action="/delete-task/{{ task.id }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this task?');">
                     <button type="submit">Delete</button>
                 </form>
             </div>

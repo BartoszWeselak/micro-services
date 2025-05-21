@@ -96,21 +96,40 @@ async def delete_task(task_id: int):
     except Exception as e:
         print("Delete task error:", e)
     return RedirectResponse("/", status_code=302)
+#
+# @app.post("/delete-project/{project_id}", response_class=RedirectResponse)
+# async def delete_project(project_id: int):
+#     try:
+#         project_url = discover_service("project-service")
+#         if not project_url:
+#             raise Exception("Project service unavailable")
+#
+#         async with httpx.AsyncClient() as client:
+#             await client.delete(f"{project_url}/projects/{project_id}")
+#     except Exception as e:
+#         print(f"Delete project error: {e}")
+#         raise HTTPException(status_code=400, detail=str(e))
+#     return RedirectResponse("/", status_code=302)
+from fastapi import Query
 
 @app.post("/delete-project/{project_id}", response_class=RedirectResponse)
-async def delete_project(project_id: int):
+async def delete_project(project_id: int, with_tasks: bool = Form(False)):
     try:
         project_url = discover_service("project-service")
         if not project_url:
             raise Exception("Project service unavailable")
 
         async with httpx.AsyncClient() as client:
-            await client.delete(f"{project_url}/projects/{project_id}")
+            endpoint = (
+                f"{project_url}/projects/{project_id}/with-tasks"
+                if with_tasks else
+                f"{project_url}/projects/{project_id}"
+            )
+            await client.delete(endpoint)
     except Exception as e:
         print(f"Delete project error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     return RedirectResponse("/", status_code=302)
-
 @app.get("/edit-task/{task_id}", response_class=HTMLResponse)
 async def edit_task_form(request: Request, task_id: int):
     try:
@@ -203,3 +222,7 @@ async def gateway(service: str, path: str, request: Request):
         response = await client.request(method, url, headers=headers, content=body)
 
     return response.json()
+#
+# @app.get("/health")
+# def health_check():
+#     return {"status": "UP"}

@@ -47,6 +47,13 @@ class Task(BaseModel):
 # === FASTAPI SETUP ===
 app = FastAPI()
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 def discover_service(service_name: str):
     try:
         services = consul_client.agent.services()
@@ -58,6 +65,17 @@ def discover_service(service_name: str):
     except Exception as e:
         logging.error(f"Service discovery error: {str(e)}")
     return None
+
+@app.delete("/tasks/by-project/{project_id}")
+def delete_tasks_by_project(project_id: int, db: Session = Depends(get_db)):
+    tasks = db.query(TaskORM).filter(TaskORM.project_id == project_id).all()
+    if not tasks:
+        return {"message": "No tasks found for this project"}
+    for task in tasks:
+        db.delete(task)
+    db.commit()
+    return {"message": f"Deleted {len(tasks)} tasks for project {project_id}"}
+
 
 def get_service_ip():
     try:
