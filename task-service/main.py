@@ -78,6 +78,13 @@ def delete_tasks_by_project(project_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Deleted {len(tasks)} tasks for project {project_id}"}
 
+@app.patch("/tasks/unassign/{project_id}")
+def unassign_tasks(project_id: int, db: Session = Depends(get_db)):
+    tasks = db.query(TaskORM).filter(TaskORM.project_id == project_id).all()
+    for task in tasks:
+        task.project_id = None
+    db.commit()
+    return {"message": f"{len(tasks)} tasks unassigned from project {project_id}"}
 
 def get_service_ip():
     try:

@@ -136,6 +136,19 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # odkrycie task-service
+    task_service_url = discover_service("task-service")
+    if not task_service_url:
+        raise HTTPException(status_code=500, detail="Task service unavailable")
+
+    # PATCH: ustawienie project_id = null dla zadań przypisanych do projektu
+    try:
+        response = requests.patch(f"{task_service_url}/tasks/unassign/{project_id}")
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Failed to unassign tasks")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error unassigning tasks: {str(e)}")
+
     db.delete(db_project)
     db.commit()
     return {"message": "Project deleted successfully"}
@@ -164,6 +177,7 @@ def delete_project_and_tasks(project_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": f"Project {project_id} and its tasks were deleted"}
+
 
 @app.get("/health")
 def health_check():
