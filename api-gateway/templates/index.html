@@ -241,7 +241,14 @@
                     {{ "Done" if task.is_done else "Pending" }}
                 </span>
                 <p>{{ task.description }}</p>
-                <small>Project ID: {{ task.project_id }}</small><br>
+                <small>
+    Project:
+    {% if task.project_id %}
+        {{ task.project_id }}
+    {% else %}
+        <em>Unassigned</em>
+    {% endif %}
+</small><br>
 
                 <button type="button" onclick="toggleEditForm('task-{{ task.id }}')">Edit</button>
 
@@ -261,16 +268,17 @@
                             <option value="true" {% if task.is_done %}selected{% endif %}>Done</option>
                         </select>
                     </label>
-                    <label>
-                        Project:
-                        <select name="project_id" required>
-                            {% for project in projects %}
-                            <option value="{{ project.id }}" {% if project.id == task.project_id %}selected{% endif %}>
-                                {{ project.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </label>
+                   <label>
+    Project:
+    <select name="project_id">
+        <option value="">-- Unassigned --</option>
+        {% for project in projects %}
+        <option value="{{ project.id }}" {% if project.id == task.project_id %}selected{% endif %}>
+            {{ project.name }}
+        </option>
+        {% endfor %}
+    </select>
+</label>
                     <button type="submit">Save</button>
                 </form>
 
@@ -293,14 +301,14 @@
             </label>
 
             <label>
-                Project:
-                <select name="project_id" required>
-                    <option value="" disabled selected>Select a project</option>
-                    {% for project in projects %}
-                        <option value="{{ project.id }}">{{ project.name }}</option>
-                    {% endfor %}
-                </select>
-            </label>
+    Project:
+    <select name="project_id">
+        <option value="" selected>-- Unassigned --</option>
+        {% for project in projects %}
+            <option value="{{ project.id }}">{{ project.name }}</option>
+        {% endfor %}
+    </select>
+</label>
 
             <button type="submit">Add Task</button>
         </form>

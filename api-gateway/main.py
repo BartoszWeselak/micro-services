@@ -5,6 +5,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from consul import Consul
 import logging
+from typing import Optional
+from typing import Union
 
 app = FastAPI()
 
@@ -49,7 +51,12 @@ async def homepage(request: Request):
     })
 
 @app.post("/add-task", response_class=RedirectResponse)
-async def add_task(title: str = Form(...), description: str = Form(""), project_id: int = Form(...)):
+async def add_task(title: str = Form(...), description: str = Form(""),project_id: Union[int, None, str] = Form(None)):
+    if project_id == "":
+        project_id = None
+    else:
+        project_id = int(project_id)
+
     task_data = {
         "title": title,
         "description": description,
@@ -149,7 +156,13 @@ async def edit_task_form(request: Request, task_id: int):
     return templates.TemplateResponse("edit_task.html", {"request": request, "task": task, "projects": projects})
 
 @app.post("/edit-task/{task_id}", response_class=RedirectResponse)
-async def edit_task(task_id: int, title: str = Form(...), description: str = Form(""), project_id: int = Form(...), is_done: bool = Form(False)):
+async def edit_task(task_id: int, title: str = Form(...), description: str = Form(""),project_id: Union[int, None, str] = Form(None)
+, is_done: bool = Form(False)):
+    if project_id == "":
+        project_id = None
+    else:
+        project_id = int(project_id)
+
     task_data = {
         "title": title,
         "description": description,

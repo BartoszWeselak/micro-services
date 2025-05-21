@@ -8,6 +8,8 @@ import os
 from consul import Consul
 import logging
 import socket
+from typing import Optional
+
 # === Consul Client Setup ===
 CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")
 SERVICE_NAME = os.getenv("SERVICE_NAME", "task-service")
@@ -30,7 +32,7 @@ class TaskORM(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String, nullable=False)
     description = Column(String)
-    project_id = Column(Integer)
+    project_id = Column(Integer, nullable=True)
     is_done = Column(Boolean, default=False)
 
 # === Pydantic model ===
@@ -38,7 +40,7 @@ class Task(BaseModel):
     id: int | None = None
     title: str
     description: str = ""
-    project_id: int
+    project_id: Optional[int] = None
     is_done: bool = False
 
     class Config:
@@ -127,26 +129,28 @@ import requests
 def create_task(task: Task, db: Session = Depends(get_db)):
     task_data = task.dict(exclude={"id"})
 
-    project_service_url = discover_service("project-service")
-    if not project_service_url:
-        raise HTTPException(status_code=500, detail="Project service unavailable")
+    if task.project_id is not None:  # ← warunkowa walidacja
+        project_service_url = discover_service("project-service")
+        if not project_service_url:
+            raise HTTPException(status_code=500, detail="Project service unavailable")
 
-    try:
-        response = requests.get(f"{project_service_url}/projects")
-        if response.status_code == 200:
-            projects = response.json()
-            if not any(p["id"] == task.project_id for p in projects):
-                raise HTTPException(status_code=400, detail="Project does not exist")
-        else:
-            raise HTTPException(status_code=500, detail="Failed to validate project")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            response = requests.get(f"{project_service_url}/projects")
+            if response.status_code == 200:
+                projects = response.json()
+                if not any(p["id"] == task.project_id for p in projects):
+                    raise HTTPException(status_code=400, detail="Project does not exist")
+            else:
+                raise HTTPException(status_code=500, detail="Failed to validate project")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     db_task = TaskORM(**task_data)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task
+
 @app.put("/tasks/{task_id}", response_model=Task)
 def update_task(task_id: int, task: Task, db: Session = Depends(get_db)):
     db_task = db.query(TaskORM).filter(TaskORM.id == task_id).first()
