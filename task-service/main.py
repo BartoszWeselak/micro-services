@@ -163,6 +163,23 @@ def update_task(task_id: int, task: Task, db: Session = Depends(get_db)):
     db_task = db.query(TaskORM).filter(TaskORM.id == task_id).first()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.project_id is not None:
+        project_service_url = discover_service("project-service")
+        if not project_service_url:
+            raise HTTPException(status_code=500, detail="Project service unavailable")
+
+        try:
+            response = requests.get(f"{project_service_url}/projects")
+            if response.status_code == 200:
+                projects = response.json()
+                if not any(p["id"] == task.project_id for p in projects):
+                    raise HTTPException(status_code=400, detail="Project does not exist")
+            else:
+                raise HTTPException(status_code=500, detail="Failed to validate project")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
     for key, value in task.dict().items():
         if key != "id":
             setattr(db_task, key, value)
@@ -183,7 +200,6 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Wyrejestrowanie z Consul przy zamknięciu
     service_ip = get_service_ip()
     service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
 
@@ -192,7 +208,6 @@ async def shutdown_event():
         logging.info("Successfully unregistered from Consul")
     except Exception as e:
         logging.error(f"Failed to unregister from Consul: {str(e)}")
-
 
 # Health check endpoint wymagany przez Consul
 @app.get("/health")
