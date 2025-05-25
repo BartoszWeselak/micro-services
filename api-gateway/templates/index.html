@@ -234,10 +234,15 @@
                     {{ "Done" if task.is_done else "Pending" }}
                 </span>
                 <p>{{ task.description }}</p>
-                <small>
+               <small>
     Project:
     {% if task.project_id %}
-        {{ task.project_id }}
+        {% for project in projects %}
+         {% if project.id | int == task.project_id | int %}
+          {{ project.name }}
+    {% endif %}
+{% endfor %}
+        {{ project_name }} (ID: {{ task.project_id }})
     {% else %}
         <em>Unassigned</em>
     {% endif %}
