@@ -235,7 +235,7 @@ async def gateway(service: str, path: str, request: Request):
         response = await client.request(method, url, headers=headers, content=body)
 
     return response.json()
-#
-# @app.get("/health")
-# def health_check():
-#     return {"status": "UP"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "UP"}

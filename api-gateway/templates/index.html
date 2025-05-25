@@ -91,11 +91,7 @@
         }
 
         form {
-            margin-top: 2.5rem;
-            padding: 2rem;
             background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
         }
 
         label {
@@ -155,7 +151,6 @@
 
         .inline-form {
             display: inline;
-            margin-left: 1rem;
         }
 
         @media (max-width: 768px) {
@@ -202,14 +197,12 @@
                     <button type="submit">Save</button>
                 </form>
 
-                <!-- Delete Form with option to remove associated tasks -->
-                <form method="post" action="/delete-project/{{ project.id }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this project?');">
-                    <label style="display: inline-flex; align-items: center;">
-                        <input type="checkbox" name="with_tasks" value="true" style="margin-right: 0.3rem;">
-                        Remove associated tasks
-                    </label>
-                    <button type="submit">Delete</button>
-                </form>
+              <form method="post" action="/delete-project/{{ project.id }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this project?');" style="display: flex; align-items: center; gap: 0.5rem;">
+       <button type="submit">Delete</button>
+
+    <label style="display: inline-flex; align-items: center;">
+        <input type="checkbox" name="with_tasks" value="true" style="margin-right: 0.3rem;">Remove tasks</label>
+</form>
             </div>
             {% endfor %}
         </div>
@@ -252,7 +245,7 @@
 
                 <button type="button" onclick="toggleEditForm('task-{{ task.id }}')">Edit</button>
 
-                <form id="task-{{ task.id }}" method="post" action="/edit-task/{{ task.id }}" style="display: none; margin-top: 1rem;">
+                <form id="task-{{ task.id }}" method="post" action="/edit-task/{{ task.id }}" style="display: none; margin-top: 1rem; margin-bottom:1rem;">
                     <label>
                         Title:
                         <input type="text" name="title" value="{{ task.title }}" required>
@@ -271,7 +264,7 @@
                    <label>
     Project:
     <select name="project_id">
-        <option value="">-- Unassigned --</option>
+        <option value=" ">-- Unassigned --</option>
         {% for project in projects %}
         <option value="{{ project.id }}" {% if project.id == task.project_id %}selected{% endif %}>
             {{ project.name }}
