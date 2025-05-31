@@ -47,19 +47,7 @@
         - CONSUL_HOST=consul-server
         - SERVICE_NAME=task-service
         - SERVICE_PORT=8001
-  ## ====test=====
-#    task-service-2:
-#      build: ./task-service
-#      ports:
-#        - "8006:8001"
-#      depends_on:
-#        - consul-server
-#        - task-db
-#      environment:
-#        - CONSUL_HOST=consul-server
-#        - SERVICE_NAME=task-service
-#        - SERVICE_PORT=8001
-  ## =============
+
     communication-service:
       build: ./communication-service
       ports:
@@ -92,7 +80,7 @@
         POSTGRES_USER: user
         POSTGRES_PASSWORD: password
       ports:
-        - "5433:5432"  # 5433 zewnętrzny, 5432 wewnątrz kontenera
+        - "5433:5432"
       volumes:
         - project-db-data:/var/lib/postgresql/data
   volumes:

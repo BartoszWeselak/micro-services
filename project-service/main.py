@@ -11,21 +11,18 @@ import socket
 import requests
 
 
-# === Consul Config ===
 CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")
 SERVICE_NAME = os.getenv("SERVICE_NAME", "project-service")
 SERVICE_PORT = int(os.getenv("SERVICE_PORT", 8002))
 
 consul_client = Consul(host=CONSUL_HOST)
 
-# === DB CONFIG ===
 DATABASE_URL = "postgresql://user:password@project-db:5432/projectdb"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# === ORM MODEL ===
 class ProjectORM(Base):
     __tablename__ = "projects"
 
@@ -34,7 +31,6 @@ class ProjectORM(Base):
     description = Column(String, default="")
 
 
-# === Pydantic model ===
 class Project(BaseModel):
     id: int | None = None
     name: str
@@ -44,7 +40,6 @@ class Project(BaseModel):
         orm_mode = True
 
 
-# === FastAPI setup ===
 app = FastAPI()
 
 def discover_service(service_name: str):
@@ -65,12 +60,10 @@ def get_service_ip():
         return "127.0.0.1"
 
 
-# Tworzenie tabel przy starcie
 @app.on_event("startup")
 def startup_event():
     Base.metadata.create_all(bind=engine)
 
-    # Rejestracja w Consul
     service_ip = get_service_ip()
     service_id = f"{SERVICE_NAME}-{service_ip}-{SERVICE_PORT}"
     try:
@@ -91,7 +84,6 @@ def startup_event():
         logging.error(f"Błąd rejestracji w Consul: {str(e)}")
 
 
-# Dependency: sesja DB
 def get_db():
     db = SessionLocal()
     try:
@@ -100,7 +92,7 @@ def get_db():
         db.close()
 
 
-# === Endpointy ===
+
 @app.get("/projects", response_model=List[Project])
 def list_projects(db: Session = Depends(get_db)):
     return db.query(ProjectORM).all()
@@ -136,12 +128,10 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # odkrycie task-service
     task_service_url = discover_service("task-service")
     if not task_service_url:
         raise HTTPException(status_code=500, detail="Task service unavailable")
 
-    # PATCH: ustawienie project_id = null dla zadań przypisanych do projektu
     try:
         response = requests.patch(f"{task_service_url}/tasks/unassign/{project_id}")
         if response.status_code != 200:
@@ -159,12 +149,10 @@ def delete_project_and_tasks(project_id: int, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # odkrycie task-service
     task_service_url = discover_service("task-service")
     if not task_service_url:
         raise HTTPException(status_code=500, detail="Task service unavailable")
 
-    # DELETE na task-service
     try:
         response = requests.delete(f"{task_service_url}/tasks/by-project/{project_id}")
         if response.status_code != 200:
@@ -172,7 +160,6 @@ def delete_project_and_tasks(project_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting tasks: {str(e)}")
 
-    # usunięcie projektu
     db.delete(project)
     db.commit()
 
@@ -184,7 +171,6 @@ def health_check():
     return {"status": "UP"}
 
 
-# === Wyrejestrowanie ===
 @app.on_event("shutdown")
 async def shutdown_event():
     service_ip = get_service_ip()

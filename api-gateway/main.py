@@ -10,12 +10,11 @@ from typing import Union
 
 app = FastAPI()
 
-CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")  # lub "localhost", zależnie od środowiska
+CONSUL_HOST = os.getenv("CONSUL_HOST", "localhost")
 consul_client = Consul(host=CONSUL_HOST)
 
 templates = Jinja2Templates(directory="templates")
 
-# Dynamiczne odkrywanie adresu usługi z Consul
 def discover_service(service_name: str) -> str | None:
     try:
         services = consul_client.agent.services()
@@ -103,21 +102,7 @@ async def delete_task(task_id: int):
     except Exception as e:
         print("Delete task error:", e)
     return RedirectResponse("/", status_code=302)
-#
-# @app.post("/delete-project/{project_id}", response_class=RedirectResponse)
-# async def delete_project(project_id: int):
-#     try:
-#         project_url = discover_service("project-service")
-#         if not project_url:
-#             raise Exception("Project service unavailable")
-#
-#         async with httpx.AsyncClient() as client:
-#             await client.delete(f"{project_url}/projects/{project_id}")
-#     except Exception as e:
-#         print(f"Delete project error: {e}")
-#         raise HTTPException(status_code=400, detail=str(e))
-#     return RedirectResponse("/", status_code=302)
-from fastapi import Query
+
 
 @app.post("/delete-project/{project_id}", response_class=RedirectResponse)
 async def delete_project(project_id: int, with_tasks: bool = Form(False)):

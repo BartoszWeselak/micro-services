@@ -4,9 +4,6 @@ from typing import List, Optional
 
 app = FastAPI()
 
-# -------------------------
-# MODELE
-# -------------------------
 
 class Message(BaseModel):
     id: int
@@ -25,17 +22,10 @@ class Comment(BaseModel):
     author: str
     content: str
 
-# -------------------------
-# DANE W PAMIĘCI
-# -------------------------
 
 messages: List[Message] = []
 forum_posts: List[ForumPost] = []
 comments: List[Comment] = []
-
-# -------------------------
-# ENDPOINTY CZATU
-# -------------------------
 
 @app.get("/chat", response_model=List[Message])
 def get_messages():
@@ -46,9 +36,6 @@ def send_message(msg: Message):
     messages.append(msg)
     return msg
 
-# -------------------------
-# ENDPOINTY FORUM
-# -------------------------
 
 @app.get("/forum", response_model=List[ForumPost])
 def get_forum_posts():
@@ -59,9 +46,6 @@ def add_forum_post(post: ForumPost):
     forum_posts.append(post)
     return post
 
-# -------------------------
-# KOMENTARZE
-# -------------------------
 
 @app.get("/comments/{post_id}", response_model=List[Comment])
 def get_comments(post_id: int):
